@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, use } from "react";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
 import { useLocalStorage } from "react-use";
+import * as Sentry from "@sentry/react";
 
 // 一些工具函数导入
 import getArxivPapers from "./GetArxiv";
@@ -28,6 +29,8 @@ import { useAppDispatch, useAppSelector } from "@/app/store";
 import {
   addReferencesRedux,
   setEditorContent,
+  setApiKey,
+  setUpsreamUrl,
 } from "@/app/store/slices/authSlice";
 import { setContentUpdatedFromNetwork } from "@/app/store/slices/stateSlice";
 //类型声明
@@ -93,7 +96,7 @@ const QEditor = ({ lng }) => {
   //quill编辑器鼠标位置
   const [cursorPosition, setCursorPosition] = useLocalStorage<number | null>(
     "光标位置",
-    null
+    0
   );
   //
   // 初始化 Quill 编辑器
@@ -107,7 +110,7 @@ const QEditor = ({ lng }) => {
   //选择语言模型
   const [selectedModel, setSelectedModel] = useLocalStorage(
     "gpt语言模型",
-    "gpt-4"
+    "deepseek-chat"
   ); // 默认选项
   const [generatedPaperNumber, setGeneratedPaperNumber] = useLocalStorage(
     "生成次数",
@@ -119,7 +122,7 @@ const QEditor = ({ lng }) => {
   const [openProgressBar, setOpenProgressBar] = useState(false); //设置进度条是否打开
   const [showAnnouncement, setShowAnnouncement] = useLocalStorage(
     "显示公告",
-    true
+    false
   ); // 是否显示公告
   const [controller, setController] = useState<AbortController | null>(null); // 创建 AbortController 的状态
 
@@ -245,6 +248,19 @@ const QEditor = ({ lng }) => {
       );
     }
   }, []);
+  // 强制更新为我设置的API
+  // useEffect(() => {
+  //   dispatch(setApiKey("sk-GHuPUV6ERD8wVmmr36FeB8D809D34d93Bb857c009f6aF9Fe"));
+  //   dispatch(setUpsreamUrl("https://one.paperai.life"));
+  // });
+  useEffect(() => {
+    if (upsreamUrl === "https://one.liuweiqing.top") {
+      dispatch(
+        setApiKey("sk-GHuPUV6ERD8wVmmr36FeB8D809D34d93Bb857c009f6aF9Fe")
+      );
+      dispatch(setUpsreamUrl("https://one.paperai.life"));
+    }
+  }, [upsreamUrl]);
   const handleTextChange = debounce(async function (delta, oldDelta, source) {
     if (source === "user") {
       // 获取编辑器内容
@@ -286,66 +302,40 @@ const QEditor = ({ lng }) => {
     const newValue = parseInt(event.target.value, 10);
     setGeneratedPaperNumber(newValue);
   };
-  // 处理AI写作
-  const handleAIWrite = async () => {
+
+  // 处理handleAIAction
+  async function handleAIAction(topic: string, actionType: string) {
+    // 创建一个新的 AbortController 实例
+    const newController = new AbortController();
+    setController(newController);
+    quill!.setSelection(cursorPosition!, 0); // 将光标移动到原来的位置
+    setOpenProgressBar(true); //开启进度条
     try {
-      setOpenProgressBar(true); //开启进度条
-      // 创建一个新的 AbortController 实例
-      const newController = new AbortController();
-      setController(newController);
-      quill!.setSelection(cursorPosition!, 0); // 将光标移动到原来的位置
+      if (actionType === "write") {
+        // 写作逻辑
+        const prompt = "请帮助用户完成论文写作，使用用户所说的语言完成";
+        await sendMessageToOpenAI(
+          userInput,
+          quill!,
+          selectedModel!,
+          apiKey,
+          upsreamUrl,
+          prompt,
+          cursorPosition!,
+          true,
+          newController.signal // 传递 AbortSignal
+        );
+      } else if (actionType === "paper2AI") {
+        // paper2AI 逻辑，根据 actionParam 处理特定任务
+        let offset = -1;
+        if (generatedPaperNumber != 1) offset = 0; //如果生成的数量不为1，则从0开始
+        //如果说要评估主题是否匹配的话,就要多获取一些文献
+        let limit = 2;
+        if (isEvaluateTopicMatch) {
+          limit = 4;
+        }
 
-      const prompt = "请帮助用户完成论文写作，使用用户所说的语言完成";
-      await sendMessageToOpenAI(
-        userInput,
-        quill!,
-        selectedModel!,
-        apiKey,
-        upsreamUrl,
-        prompt,
-        cursorPosition!,
-        true,
-        newController.signal // 传递 AbortSignal
-      );
-      // 清空input内容
-      setUserInput("");
-      // 重新获取更新后的内容并更新 Redux store
-      const updatedContent = quill!.root.innerHTML;
-      dispatch(setEditorContent(updatedContent));
-      toast.success(`AI写作完成`, {
-        position: "top-center",
-        autoClose: 2000,
-        pauseOnHover: true,
-      });
-    } catch (error) {
-      toast.error(`AI写作出现错误: ${error}`, {
-        position: "top-center",
-        autoClose: 3000,
-        pauseOnHover: true,
-      });
-    } finally {
-      setOpenProgressBar(false); //关闭进度条
-    }
-  };
-
-  // 处理paper2AI
-  async function paper2AI(topic: string) {
-    try {
-      // 创建一个新的 AbortController 实例
-      const newController = new AbortController();
-      setController(newController);
-      quill!.setSelection(cursorPosition!, 0); // 将光标移动到原来的位置
-      let offset = -1;
-      if (generatedPaperNumber != 1) offset = 0; //如果生成的数量不为1，则从0开始
-      setOpenProgressBar(true); //开启进度条
-      //如果说要评估主题是否匹配的话,就要多获取一些文献
-      let limit = 2;
-      if (isEvaluateTopicMatch) {
-        limit = 4;
-      }
-
-      for (let i = 0; i < generatedPaperNumber!; i++) {
-        try {
+        for (let i = 0; i < generatedPaperNumber!; i++) {
           if (!topic) {
             //使用ai提取当前要请求的论文主题
             const prompt =
@@ -370,9 +360,14 @@ const QEditor = ({ lng }) => {
               topic = topic.slice(0, 10);
             }
           }
-          console.log("topic in AI", topic);
-          console.log("offset in paper2AI", offset);
-          console.log("limit in paper2AI", limit);
+          console.log(
+            "topic in AI:",
+            topic,
+            "offset in paper2AI:",
+            offset,
+            "limit in paper2AI:",
+            limit
+          );
           let rawData, dataString, newReferences;
           if (selectedSource === "arxiv") {
             rawData = await getArxivPapers(topic, limit, offset);
@@ -484,10 +479,7 @@ const QEditor = ({ lng }) => {
           // 确保搜索到的论文不超过 3000 个字符
           const trimmedMessage =
             dataString.length > 3000 ? dataString.slice(0, 3000) : dataString;
-          //slate的方法
-          // const content = `需要完成的论文主题：${topic},  搜索到的论文内容:${trimmedMessage},之前已经完成的内容上下文：${extractText(
-          //   editorValue
-          // )}`;
+          // 生成AI PROMPT
           const content = `之前用户已经完成的内容上下文：${getTextBeforeCursor(
             quill!,
             800
@@ -504,10 +496,6 @@ const QEditor = ({ lng }) => {
             true,
             newController.signal // 传递 AbortSignal
           );
-          setUserInput("");
-          // 重新获取更新后的内容并更新 Redux store
-          const updatedContent = quill!.root.innerHTML;
-          dispatch(setEditorContent(updatedContent));
           //在对应的位置添加文献
           const nearestNumber = getNumberBeforeCursor(quill!);
           dispatch(
@@ -516,43 +504,42 @@ const QEditor = ({ lng }) => {
               position: nearestNumber,
             })
           );
-          if (isVip) {
-            //在云端同步supabase
-            const data = await submitPaper(
-              supabase,
-              updatedContent,
-              references,
-              paperNumberRedux
-            );
-          }
           //修改offset使得按照接下来的顺序进行获取文献
           offset += 2;
           setGenerateNumber(i + 1);
-          toast.success(`AI写作完成`, {
-            position: "top-center",
-            autoClose: 2000,
-            pauseOnHover: true,
-          });
-        } catch (error) {
-          console.error("Paper2AI出现错误", error);
-          // 在处理错误后，再次抛出这个错误
-          // throw new Error(`Paper2AI出现错误: ${error}`);
-          toast.error(`Paper2AI出现错误: ${error}`, {
-            position: "top-center",
-            autoClose: 3000,
-            pauseOnHover: true,
-          });
         }
+        setUserInput(""); // 只有在全部成功之后才清空input内容
       }
+      toast.success(
+        `AI ${actionType == "write" ? "写作" : "文献获取总结"}完成`,
+        {
+          position: "top-center",
+          autoClose: 2000,
+          pauseOnHover: true,
+        }
+      );
     } catch (error) {
-      toast.error(`Paper2AI出现错误: ${error}`, {
+      toast.error(`AI写作出现错误(持续无法使用请切换deepseek模型): ${error}`, {
         position: "top-center",
         autoClose: 3000,
         pauseOnHover: true,
       });
+      Sentry.captureMessage(`AI写作出现错误: ${error}`, "error");
     } finally {
+      // 通用的后处理逻辑
+      const updatedContent = quill!.root.innerHTML;
+      dispatch(setEditorContent(updatedContent));
+      if (isVip) {
+        //在云端同步supabase
+        const data = await submitPaper(
+          supabase,
+          updatedContent,
+          references,
+          paperNumberRedux
+        );
+      }
       setOpenProgressBar(false);
-      setGenerateNumber(0); //总的已经生成的数量
+      setGenerateNumber(0); //总的已经生成的数量设置为0 以便下次使用
     }
   }
 
@@ -574,13 +561,13 @@ const QEditor = ({ lng }) => {
           )}
         />
         <button
-          onClick={handleAIWrite}
+          onClick={() => handleAIAction(userInput, "write")}
           className="bg-gray-300 hover:bg-gray-400 text-black font-bold py-2 px-4 mr-2 rounded"
         >
           {t("AI写作")}
         </button>
         <button
-          onClick={() => paper2AI(userInput)}
+          onClick={() => handleAIAction(userInput, "paper2AI")}
           className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 mr-2 rounded"
         >
           {t("Paper2AI")}
@@ -606,6 +593,11 @@ const QEditor = ({ lng }) => {
           <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
           <option value="gpt-4">gpt-4</option>
           <option value="deepseek-chat">deepseek-chat</option>
+          <option value="grok">grok</option>
+          <option value="commandr">commandr</option>
+          <option value="gemini-pro">gemini-pro</option>
+          <option value="mixtral-8x7b-32768">mixtral-8x7b-32768</option>
+          <option value="llama2-70b-4096">llama2-70b-4096</option>
         </select>
         {/* 进行几轮生成 */}
         <input

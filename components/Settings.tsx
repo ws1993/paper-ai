@@ -25,35 +25,45 @@ const Settings = ({ lng }: { lng: string }) => {
   //i18n
   const { t } = useTranslation(lng);
   const CONFIG_OPTIONS = [
+    // {
+    //   name: t("configurations.蒙恬大将军"),
+    //   apiKey: "sk-jokVJ90l5Swxr5dt2f3b0988C8A442A69f97Ee4eAf7aDcF4",
+    //   upstreamUrl: "https://freeapi.iil.im",
+    // },
+    // {
+    //   name: t("configurations.coze"),
+    //   apiKey: "MTIwMjE2ODMyODA1NTk1MTM2MA",
+    //   upstreamUrl: "https://coze.paperai.life",
+    // },
+    // {
+    //   name: t("configurations.deepseek-chat"),
+    //   apiKey: "sk-ffe19ebe9fa44d00884330ff1c18cf82",
+    //   upstreamUrl: "https://api.deepseek.com",
+    // },
+    // {
+    //   name: t("configurations.caifree"),
+    //   apiKey: "sk-MaEuOo9qIeWKK3PRCdCb9b3d47E64e36Ad6022724b780592",
+    //   upstreamUrl: "https://one.caifree.com",
+    // },
+    // {
+    //   name: t("configurations.官网反代"),
+    //   apiKey: "3b73ec02-3255-4b27-a202-42ab9a6e85ba",
+    //   upstreamUrl: "https://plus.liuweiqing.top",
+    // },
+    // {
+    //   name: t("configurations.vv佬"),
+    //   apiKey: "nk-23118",
+    //   upstreamUrl: "https://cocopilot-pool.aivvm.com",
+    // },
+    // {
+    //   name: t("configurations.linuxdo"),
+    //   apiKey: "nk-2311676378",
+    //   upstreamUrl: "https://chat.flss.world/api/openai",
+    // },
     {
-      name: t("configurations.蒙恬大将军"),
-      apiKey: "sk-jokVJ90l5Swxr5dt2f3b0988C8A442A69f97Ee4eAf7aDcF4",
-      upstreamUrl: "https://freeapi.iil.im",
-    },
-    {
-      name: t("configurations.deepseek-chat"),
-      apiKey: "sk-ffe19ebe9fa44d00884330ff1c18cf82",
-      upstreamUrl: "https://api.deepseek.com",
-    },
-    {
-      name: t("configurations.caifree"),
-      apiKey: "sk-MaEuOo9qIeWKK3PRCdCb9b3d47E64e36Ad6022724b780592",
-      upstreamUrl: "https://one.caifree.com",
-    },
-    {
-      name: t("configurations.coze"),
-      apiKey: "MTIwMjE2ODMyODA1NTk1MTM2MA",
-      upstreamUrl: "https://coze.liuweiqing.top",
-    },
-    {
-      name: t("configurations.vv佬"),
-      apiKey: "nk-23118",
-      upstreamUrl: "https://cocopilot-pool.aivvm.com",
-    },
-    {
-      name: t("configurations.linuxdo"),
-      apiKey: "nk-2311676378",
-      upstreamUrl: "https://chat.flss.world/api/openai",
+      name: t("configurations.oneapi"),
+      apiKey: "sk-GHuPUV6ERD8wVmmr36FeB8D809D34d93Bb857c009f6aF9Fe",
+      upstreamUrl: "https://one.paperai.life",
     },
     {
       name: t("configurations.custom"),
@@ -76,7 +86,7 @@ const Settings = ({ lng }: { lng: string }) => {
   //state
   const [userConfigNumber, setUserConfigNumber] = useLocalStorage(
     "userConfigNumber",
-    "3"
+    "2"
   );
   const toggleSwitch = (currentState: any, setState: any) => {
     setState(!currentState);
